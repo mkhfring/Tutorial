@@ -87,6 +87,23 @@ class MultiHeadAttention(nn.Module):
         
     def forward(self, x):
         return torch.cat([h(x) for h in self.heads], dim=-1) # Concatinating over channel dimension
+    
+    
+class FeedForward(nn.Module):
+    ''' a simple linear layer followd by a non-linearity'''
+    
+    """ before implementing this layer nodes where talking to each other, but they didn't have time to learn the 
+    the information that they have received through the comunication."""
+    
+    def __init__(self, n_embed):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embed, n_embed),
+            nn.ReLU()
+        )
+        
+    def forward(self, x):
+        return self.net(x)
         
 
 class BigramLanguageModel(nn.Module):
@@ -99,6 +116,7 @@ class BigramLanguageModel(nn.Module):
         # their positions. So, here we will add the positional embeddings
         self.postion_embedding_table = nn.Embedding(block_size, n_embed)
         self.sa_heads = MultiHeadAttention(4, n_embed//4) # i.e. 4 heads of 8-dimensional self-attention (very similar to group convolution)
+        self.ffwd = FeedForward(n_embed)
         self.lm_head = nn.Linear(n_embed, vocab_size)
         
     def forward(self, idx, targets=None):
@@ -112,6 +130,7 @@ class BigramLanguageModel(nn.Module):
         # the addition below will use broadcasting in pytorch
         x = token_embedding + pos_embedding
         x = self.sa_heads(x)
+        x = self.ffwd(x)
         logits = self.lm_head(x) #(B,T,C_{vocab_size})
         
 
