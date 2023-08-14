@@ -8,7 +8,7 @@ max_iters = 3000
 eval_iterval = 300
 learning_rate = 1e-2
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-eval_iter = 200
+eval_iters = 200
 
 #---------------
 torch.manual_seed(1337)
@@ -40,6 +40,22 @@ def get_batch(split):
     y = torch.stack([data[i+1:i+block_size+1] for i in ix])
     return x, y
 
+@torch.no_grad()
+def estimate_loss():
+    out = {}
+    model.eval()
+    for split in ['train', 'val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            x, y = get_batch(split)
+            logits, loss = model(x, y)
+            losses[k] = loss.item()
+            
+        out[split] = losses.mean()
+        
+    model.train()
+    return out
+        
 
 class BigramLanguageModel(nn.Module):
 
@@ -86,6 +102,9 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for iter in range(max_iters): # increase number of steps for good results...
 
+    if iter % eval_iterval == 0:
+        losses = estimate_loss()
+        print(f"step {iter}: train loss: {losses['train']:.4f} and eval loss: {losses['val']:.4f}")
     # sample a batch of data
     xb, yb = get_batch('train')
 
