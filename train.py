@@ -4,9 +4,9 @@ from torch.nn import functional as F
 
 batch_size = 32
 block_size = 8
-max_iters = 3000
+max_iters = 5000
 eval_iterval = 300
-learning_rate = 1e-2
+learning_rate = 1e-3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
 n_embed = 32
@@ -64,16 +64,29 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embed, head_size, bias=False)
         self.query =  nn.Linear(n_embed, head_size, bias=False)
         self.value =  nn.Linear(n_embed, head_size, bias=False)
-        self.register_buffer('trail'. torch.trail(torch.ones(block_size, block_size)))
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
         
     def forward(self, x):
         B, T, C = x.shape
         k = self.key(x)
         q = self.query(x)
-        wei = q @ key.transpose(-2, -1) * C**-0.5
-        wei = wei.masked_fill(self.trail[:T, :T] ==0, float('-inf'))
+        wei = q @ k.transpose(-2, -1) * C**-0.5
+        wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf'))
         wei = F.softmax(wei, dim=-1)
-        v = self.value(x,)
+        v = self.value(x)
+        out = wei @ v
+        return out
+    
+    
+class MultiHeadAttention(nn.Module):
+    """multiple heads of self-attention in parallel"""
+    
+    def __init__(self, num_heads, head_size):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        
+    def forward(self, x):
+        return torch.cat([h(x) for h in self.heads], dim=-1) # Concatinating over channel dimension
         
 
 class BigramLanguageModel(nn.Module):
@@ -85,8 +98,9 @@ class BigramLanguageModel(nn.Module):
         # In most cases not only we need the embedding of tokens but also we need the embedding of 
         # their positions. So, here we will add the positional embeddings
         self.postion_embedding_table = nn.Embedding(block_size, n_embed)
+        self.sa_heads = MultiHeadAttention(4, n_embed//4) # i.e. 4 heads of 8-dimensional self-attention (very similar to group convolution)
         self.lm_head = nn.Linear(n_embed, vocab_size)
-
+        
     def forward(self, idx, targets=None):
         B, T = idx.shape
         # idx and targets are both (B,T) tensor of integers
@@ -97,9 +111,8 @@ class BigramLanguageModel(nn.Module):
         pos_embedding = self.postion_embedding_table(torch.arange(T, device=device)) #(T, C)
         # the addition below will use broadcasting in pytorch
         x = token_embedding + pos_embedding
+        x = self.sa_heads(x)
         logits = self.lm_head(x) #(B,T,C_{vocab_size})
-        
-        
         
 
         if targets is None:
@@ -115,8 +128,14 @@ class BigramLanguageModel(nn.Module):
     def generate(self, idx, max_new_tokens):
         # idx is (B, T) array of indices in the current context
         for _ in range(max_new_tokens):
+            
+            
+            # Since we have positional embedding we can not allow a data larger than
+            # the block_size. If we don't do this then the positional embedding table will go out of scope
+            idx_cond = idx[:, -block_size:]
+            
             # get the predictions
-            logits, loss = self(idx)
+            logits, loss = self(idx_cond)
             # focus only on the last time step
             logits = logits[:, -1, :] # becomes (B, C)
             # apply softmax to get probabilities
