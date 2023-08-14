@@ -57,6 +57,24 @@ def estimate_loss():
     model.train()
     return out
         
+        
+class Head(nn.Module):
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embed, head_size, bias=False)
+        self.query =  nn.Linear(n_embed, head_size, bias=False)
+        self.value =  nn.Linear(n_embed, head_size, bias=False)
+        self.register_buffer('trail'. torch.trail(torch.ones(block_size, block_size)))
+        
+    def forward(self, x):
+        B, T, C = x.shape
+        k = self.key(x)
+        q = self.query(x)
+        wei = q @ key.transpose(-2, -1) * C**-0.5
+        wei = wei.masked_fill(self.trail[:T, :T] ==0, float('-inf'))
+        wei = F.softmax(wei, dim=-1)
+        v = self.value(x,)
+        
 
 class BigramLanguageModel(nn.Module):
 
