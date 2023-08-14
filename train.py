@@ -9,6 +9,7 @@ eval_iterval = 300
 learning_rate = 1e-2
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
+n_embed = 32
 
 #---------------
 torch.manual_seed(1337)
@@ -59,15 +60,29 @@ def estimate_loss():
 
 class BigramLanguageModel(nn.Module):
 
-    def __init__(self, vocab_size):
+    def __init__(self):
         super().__init__()
         # each token directly reads off the logits for the next token from a lookup table
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
+        # In most cases not only we need the embedding of tokens but also we need the embedding of 
+        # their positions. So, here we will add the positional embeddings
+        self.postion_embedding_table = nn.Embedding(block_size, n_embed)
+        self.lm_head = nn.Linear(n_embed, vocab_size)
 
     def forward(self, idx, targets=None):
-
+        B, T = idx.shape
         # idx and targets are both (B,T) tensor of integers
-        logits = self.token_embedding_table(idx) # (B,T,C)
+        # Instead of having vocab by vocab size we will use an embedding. So, we cannot compute
+        # the logits directly and we need to add a linear layer (See the constructor of the model)
+        token_embedding = self.token_embedding_table(idx) # (B,T,C_{embedding})
+        # In next line torch.arrange will generate integers from 0 to T-1
+        pos_embedding = self.postion_embedding_table(torch.arange(T, device=device)) #(T, C)
+        # the addition below will use broadcasting in pytorch
+        x = token_embedding + pos_embedding
+        logits = self.lm_head(x) #(B,T,C_{vocab_size})
+        
+        
+        
 
         if targets is None:
             loss = None
@@ -95,7 +110,7 @@ class BigramLanguageModel(nn.Module):
         return idx
 
 
-model = BigramLanguageModel(vocab_size)
+model = BigramLanguageModel()
 m = model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
