@@ -2,14 +2,16 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F 
 
-batch_size = 32
-block_size = 8
+batch_size = 64
+block_size = 256
 max_iters = 5000
-eval_iterval = 300
-learning_rate = 1e-3
+eval_iterval = 500
+learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
-n_embed = 32
+n_embed = 384
+n_layers = 6
+n_head = 6
 
 #---------------
 torch.manual_seed(1337)
@@ -68,11 +70,11 @@ class Head(nn.Module):
         
     def forward(self, x):
         B, T, C = x.shape
-        k = self.key(x)
-        q = self.query(x)
-        wei = q @ k.transpose(-2, -1) * C**-0.5
+        k = self.key(x) # (B, T, C)
+        q = self.query(x) # (B, T, C)
+        wei = q @ k.transpose(-2, -1) * C**-0.5 #B, T, T
         wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf'))
-        wei = F.softmax(wei, dim=-1)
+        wei = F.softmax(wei, dim=-1) #B, T, T
         v = self.value(x)
         out = wei @ v
         return out
@@ -110,13 +112,13 @@ class FeedForward(nn.Module):
         )
         
     def forward(self, x):
-        return self.net(x)
+        return self.net(x)  
     
     
 class Block(nn.Module):
     def __init__(self, n_embed, n_head):
         super().__init__()
-        head_size = n_embed // 4
+        head_size = n_embed // n_head
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedForward(n_embed)
         self.ln1 = nn.LayerNorm(n_embed)
@@ -140,14 +142,15 @@ class BigramLanguageModel(nn.Module):
         
         # self.sa_heads = MultiHeadAttention(4, n_embed//4) # i.e. 4 heads of 8-dimensional self-attention (very similar to group convolution)
         # self.ffwd = FeedForward(n_embed)
-        
-        self.blocks = nn.Sequential(
-            Block(n_embed, n_head=4),
-            Block(n_embed, n_head=4),
-            Block(n_embed, n_head=4),
-            Block(n_embed, n_head=4),
-            nn.LayerNorm(n_embed)
-        )
+        self.blocks = nn.Sequential(*[Block(n_embed=n_embed, n_head=n_head) for _ in range(n_layers)])
+        # self.blocks = nn.Sequential(
+        #     Block(n_embed, n_head=4),
+        #     Block(n_embed, n_head=4),
+        #     Block(n_embed, n_head=4),
+        #     Block(n_embed, n_head=4),
+        #     nn.LayerNorm(n_embed)
+        # )
+        self.ln_f = nn.LayerNorm(n_embed)
         self.lm_head = nn.Linear(n_embed, vocab_size)
         
     def forward(self, idx, targets=None):
@@ -163,6 +166,7 @@ class BigramLanguageModel(nn.Module):
         # x = self.sa_heads(x)
         # x = self.ffwd(x)
         x = self.blocks(x)
+        x = self.ln_f(x)
         logits = self.lm_head(x) #(B,T,C_{vocab_size})
         
 
