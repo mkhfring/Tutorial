@@ -1,0 +1,2 @@
+code_model.pth filter=lfs diff=lfs merge=lfs -text
+input2.txt filter=lfs diff=lfs merge=lfs -text
