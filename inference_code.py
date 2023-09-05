@@ -207,6 +207,6 @@ model = BigramLanguageModel()
 model.load_state_dict(torch.load('code_model.pth'))
 m = model.to(device).eval()
 
-context = torch.zeros((1, 1), dtype=torch.long, device=device) 
+first_context = torch.tensor(encode('de'), dtype=torch.long, device=device).view(1, 2)
 # context = torch.tensor(encode('d'), dtype=torch.long, device=device)
-print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+print(decode(m.generate(first_context, max_new_tokens=500)[0].tolist()))
