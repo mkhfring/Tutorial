@@ -17,7 +17,7 @@ n_head = 6
 torch.manual_seed(1337)
 
 
-with open('code_data.txt', 'r', encoding='utf-8') as f:
+with open('data/code_data.txt', 'r', encoding='utf-8') as f:
     text = f.read()
     
 chars = sorted(list(set(text)))
@@ -204,7 +204,7 @@ class BigramLanguageModel(nn.Module):
 
 
 model = BigramLanguageModel()
-model.load_state_dict(torch.load('code_model.pth'))
+model.load_state_dict(torch.load('saved_models/code_model.pth'))
 m = model.to(device).eval()
 
 first_context = torch.tensor(encode('de'), dtype=torch.long, device=device).view(1, 2)
