@@ -8,7 +8,7 @@ The tutorial on few-shot learning for code: [Maml tutorial](https://github.com/m
 - Some parts of the codes in this section are borrowed from [Meta Learning Bert](https://github.com/mailong25/meta-learning-bert)
 
 The tutorial on adapters: [Adapters tutorial](https://github.com/ist1373/AdaptersTutorial/blob/main/Tutorial.ipynb)
-- Learn about how to use adapters for different code-related through our papers listed below:
+- Learn how to use adapters for different code-related topics through our papers listed below:
   * <a href="https://arxiv.org/abs/2303.06233">Model-Agnostic Syntactical Information for Pre-Trained Programming Language Models</a>
 
   * <a href="https://arxiv.org/abs/2307.07854">Multilingual Adapter-based Knowledge Aggregation on Code Summarization for Low-Resource Languages</a>
